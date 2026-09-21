@@ -414,60 +414,88 @@ def get_and_choose_port() -> str:
         return _choose_port_plain()
     import serial.tools.list_ports
 
-    def draw_menu(stdscr, ports, selected_idx):
-        stdscr.clear()
+    entry_rows = 3
+    header_rows = 2
+    footer_rows = 2
+
+    def visible_entries(height):
+        return max(1, (height - header_rows - footer_rows) // entry_rows)
+
+    def draw_menu(stdscr, ports, selected_idx, top_idx):
+        stdscr.erase()
         height, width = stdscr.getmaxyx()
-        
+
+        def put(y, x, text, attr=0):
+            # Clip to the window; curses raises on writes past the edge.
+            max_len = width - x - 1
+            if 0 <= y < height and max_len > 0:
+                stdscr.addnstr(y, x, text, max_len, attr)
+
         title = "Choose a device (use arrow keys, Enter to select, q to quit)"
-        stdscr.addstr(0, (width - len(title)) // 2, title, curses.A_BOLD)
-        
-        for i, port in enumerate(ports):
-            y_pos = i * 3 + 2
-            if y_pos >= height - 1:
-                break
-            marker = "(x)" if i == selected_idx else "( )"
+        put(0, max(0, (width - len(title)) // 2), title, curses.A_BOLD)
 
-            if i == selected_idx:
-                stdscr.attron(curses.A_REVERSE)
-                stdscr.addstr(y_pos, 0, f"{i+1:2d}. {marker} {port.device}")
-                stdscr.attroff(curses.A_REVERSE)
-            else:
-                stdscr.addstr(y_pos, 0, f"{i+1:2d}. {marker} {port.device}")
+        rows = visible_entries(height)
+        for i in range(top_idx, min(top_idx + rows, len(ports))):
+            port = ports[i]
+            y_pos = header_rows + (i - top_idx) * entry_rows
+            selected = i == selected_idx
+            marker = "(x)" if selected else "( )"
+            put(y_pos, 0, f"{i+1:2d}. {marker} {port.device}", curses.A_REVERSE if selected else 0)
+            put(y_pos + 1, 4, port.description or "No description")
+            put(y_pos + 2, 4, port.manufacturer or "Unknown manufacturer")
 
-            if y_pos + 1 < height - 1:
-                stdscr.addstr(y_pos + 1, 4, f"{port.description or 'No description'}")
-            if y_pos + 2 < height - 1:
-                stdscr.addstr(y_pos + 2, 4, f"{port.manufacturer or 'Unknown manufacturer'}")
-        
-        if len(ports) + 5 < height:
-            stdscr.addstr(height - 2, 0, "Use ↑↓ arrows to navigate, Enter to select, q to quit")
-        
+        more_above = "↑ more  " if top_idx > 0 else ""
+        more_below = "↓ more  " if top_idx + rows < len(ports) else ""
+        put(
+            height - 1,
+            0,
+            f"{selected_idx + 1}/{len(ports)}  {more_above}{more_below}"
+            "↑↓ PgUp/PgDn Home/End  Enter select  q quit",
+        )
         stdscr.refresh()
-    
+
     def main_menu(stdscr):
         curses.curs_set(0)
         stdscr.keypad(True)
-        
+
         ports = list(serial.tools.list_ports.comports())
-        
+
         if not ports:
             stdscr.clear()
             stdscr.addstr(0, 0, "No USB devices found!")
             stdscr.refresh()
             stdscr.getch()
             return None
-        
+
         selected_idx = 0
-        
+        top_idx = 0
+
         while True:
-            draw_menu(stdscr, ports, selected_idx)
-            
+            height, _ = stdscr.getmaxyx()
+            rows = visible_entries(height)
+            # Scroll the window so the selection stays on screen, also after a resize.
+            top_idx = min(top_idx, max(0, len(ports) - rows))
+            if selected_idx < top_idx:
+                top_idx = selected_idx
+            elif selected_idx >= top_idx + rows:
+                top_idx = selected_idx - rows + 1
+
+            draw_menu(stdscr, ports, selected_idx, top_idx)
+
             key = stdscr.getch()
-            
-            if key == curses.KEY_UP and selected_idx > 0:
-                selected_idx -= 1
-            elif key == curses.KEY_DOWN and selected_idx < len(ports) - 1:
-                selected_idx += 1
+
+            if key == curses.KEY_UP:
+                selected_idx = max(0, selected_idx - 1)
+            elif key == curses.KEY_DOWN:
+                selected_idx = min(len(ports) - 1, selected_idx + 1)
+            elif key == curses.KEY_PPAGE:
+                selected_idx = max(0, selected_idx - rows)
+            elif key == curses.KEY_NPAGE:
+                selected_idx = min(len(ports) - 1, selected_idx + rows)
+            elif key == curses.KEY_HOME:
+                selected_idx = 0
+            elif key == curses.KEY_END:
+                selected_idx = len(ports) - 1
             elif key == curses.KEY_ENTER or key in [10, 13]:
                 return ports[selected_idx].device
             elif key == ord('q') or key == ord('Q'):
