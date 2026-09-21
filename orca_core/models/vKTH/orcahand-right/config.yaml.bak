@@ -115,23 +115,6 @@ joint_roms:
   pinky_pip:
   - -15
   - 108
-# Where the URDF's zero pose sits on this hand, in degrees: the joint angle you
-# have to command for the real hand to match the model at zero. Measured by
-# holding the hand next to orca_debug's urdf_sliders. Only joints that disagree
-# need an entry.
-#
-# Rewriting a joint's ROM does not move its zero -- the model's zero is wherever
-# the source CAD put the joint origin, and the hand's is wherever calibration
-# lands between the stops. thumb_cmc is the one joint here where the two ranges
-# are shifted rather than merely stretched (this hand [-43, 47] against the v2
-# CAD's [-60, 33], the same 90-odd degrees of travel in a different place), and
-# it is the one joint that reads visibly wrong against the model.
-#
-# scripts/make_hand_urdf.py folds these into the generated URDF's joint origins,
-# so re-run it after changing anything here.
-urdf_zero_offsets:
-  thumb_cmc: 24
-
 neutral_position:
   thumb_cmc: 0
   thumb_abd: 50
