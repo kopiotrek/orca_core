@@ -62,14 +62,19 @@ joint_roms:
   wrist:
   - -65
   - 35
-  thumb_cmc:
-  - -42
+  thumb_cmc: # 90 degrees
+  # - -42
+  # - 47
+  - -43
   - 47
-  thumb_abd:
-  - -18
-  - 55
-  thumb_mcp:
-  - -60
+  thumb_abd: # 56 degrees
+  # - -18
+  # - 55
+  - -16
+  - 40
+  thumb_mcp: # 157 degrees
+  # - -60
+  - -67
   - 90
   thumb_dip:
   - -55
